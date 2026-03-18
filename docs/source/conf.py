@@ -7,7 +7,8 @@ author = 'Great Scott Gadgets'
 # -- General configuration ---------------------------------------------------
 
 extensions = [
-    'sphinx.ext.autodoc'
+    'sphinx.ext.autodoc',
+    'sphinx_rtd_theme'
 ]
 
 templates_path = ['_templates']
