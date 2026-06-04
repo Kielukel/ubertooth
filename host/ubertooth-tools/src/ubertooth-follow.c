@@ -195,27 +195,45 @@ int main(int argc, char *argv[])
             //exit(1);
         }
         if(mode == 0x01) {
-
-            /* Count active channels to prevent libbtbb division by zero */
             int i, valid_channels = 0;
-            for(i = 0; i < 10; i++) {
-                uint8_t byte = afh_map[i];
-                while(byte) {
-                    valid_channels += byte & 1;
-                    byte >>= 1;
+            int retries = 3; // Try up to 3 times
+
+            while (retries > 0) {
+                valid_channels = 0;
+
+                // Re-read the map from the controller
+                if (hci_read_afh_map(sock, handle, &mode, afh_map, 1000) < 0) {
+                    perror("HCI read AFH map request failed during retry");
                 }
+
+                // Count the active channels
+                for(i = 0; i < 10; i++) {
+                    uint8_t byte = afh_map[i];
+                    while(byte) {
+                        valid_channels += byte & 1;
+                        byte >>= 1;
+                    }
+                }
+
+                // If we have a healthy map, break out of the loop early
+                if (valid_channels >= 20) {
+                    break;
+                }
+
+                printf("Waiting for master to negotiate AFH map... (%d attempts left)\n", retries);
+                sleep(1); // Pause for 1 second to let BT hardware think
+                retries--;
             }
 
-            /* The Bluetooth spec requires a minimum of 20 channels for AFH.
-               If the controller returned a blank/transient map, ignore it. */
+            /* Final evaluation after polling */
             if(valid_channels >= 20) {
+                printf("Successfully captured AFH map with %d channels!\n", valid_channels);
                 btbb_piconet_set_afh_map(pn, afh_map);
                 btbb_print_afh_map(pn);
             } else {
-                printf("AFH map invalid or empty (%d channels). Disabling AFH for this run.\n", valid_channels);
+                printf("AFH map remained empty (%d channels). Master may not be using AFH right now. Disabling AFH.\n", valid_channels);
                 afh_enabled = 0;
             }
-
         } else {
             printf("AFH disabled.\n");
             afh_enabled = 0;
