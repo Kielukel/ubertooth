@@ -190,20 +190,39 @@ int main(int argc, char *argv[])
 
 	//Experimental AFH map reading from remote device
 	if(afh_enabled) {
-		if(hci_read_afh_map(sock, handle, &mode, afh_map, 1000) < 0) {
-			perror("HCI read AFH map request failed");
-			//exit(1);
-		}
-		if(mode == 0x01) {
-			btbb_piconet_set_afh_map(pn, afh_map);
-			btbb_print_afh_map(pn);
-		} else {
-			printf("AFH disabled.\n");
-			afh_enabled = 0;
-		}
-	} else {
-		printf("Not use AFH\n");
-	}
+        if(hci_read_afh_map(sock, handle, &mode, afh_map, 1000) < 0) {
+            perror("HCI read AFH map request failed");
+            //exit(1);
+        }
+        if(mode == 0x01) {
+
+            /* Count active channels to prevent libbtbb division by zero */
+            int i, valid_channels = 0;
+            for(i = 0; i < 10; i++) {
+                uint8_t byte = afh_map[i];
+                while(byte) {
+                    valid_channels += byte & 1;
+                    byte >>= 1;
+                }
+            }
+
+            /* The Bluetooth spec requires a minimum of 20 channels for AFH.
+               If the controller returned a blank/transient map, ignore it. */
+            if(valid_channels >= 20) {
+                btbb_piconet_set_afh_map(pn, afh_map);
+                btbb_print_afh_map(pn);
+            } else {
+                printf("AFH map invalid or empty (%d channels). Disabling AFH for this run.\n", valid_channels);
+                afh_enabled = 0;
+            }
+
+        } else {
+            printf("AFH disabled.\n");
+            afh_enabled = 0;
+        }
+    } else {
+        printf("Not use AFH\n");
+    }
 
 	/* Clean up on exit. */
 	register_cleanup_handler(ut, 0);
@@ -235,7 +254,7 @@ int main(int argc, char *argv[])
 	cmd_set_clock(ut->devh, 0);
 	if(afh_enabled)
 		cmd_set_afh_map(ut->devh, afh_map);
-    
+
     // Read clocks here to ensure clock is closest to real value
     hci_read_clock(sock, 0, 0, &clock, &accuracy, 0);
     if (cc) {
