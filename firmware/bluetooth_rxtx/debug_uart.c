@@ -33,21 +33,21 @@ void debug_uart_init(int flow_control) {
 	U1FCR = 0b1001;
 
 	// set P0.15 as TXD1, with pullup
-	PINSEL0  = (PINSEL0  & ~(0b11 << 30)) | (0b01 << 30);
-	PINMODE0 = (PINMODE0 & ~(0b11 << 30)) | (0b00 << 30);
+	//PINSEL0  = (PINSEL0  & ~(0b11 << 30)) | (0b01 << 30);
+	//PINMODE0 = (PINMODE0 & ~(0b11 << 30)) | (0b00 << 30);
 
 	// set P0.16 as RXD1, with pullup
-	PINSEL1  = (PINSEL1  & ~(0b11 <<  0)) | (0b01 <<  0);
-	PINMODE1 = (PINMODE1 & ~(0b11 <<  0)) | (0b00 <<  0);
+	// PINSEL1  = (PINSEL1  & ~(0b11 <<  0)) | (0b01 <<  0);
+	// PINMODE1 = (PINMODE1 & ~(0b11 <<  0)) | (0b00 <<  0);
 
 	if (flow_control) {
-		// set P0.17 as CTS1, no pullup/down
-		PINSEL1  = (PINSEL1  & ~(0b11 <<  2)) | (0b01 <<  2);
-		PINMODE1 = (PINMODE1 & ~(0b11 <<  2)) | (0b10 <<  2);
+		// // set P0.17 as CTS1, no pullup/down
+		// PINSEL1  = (PINSEL1  & ~(0b11 <<  2)) | (0b01 <<  2);
+		// PINMODE1 = (PINMODE1 & ~(0b11 <<  2)) | (0b10 <<  2);
 
-		// set P0.22 as RTS1, no pullup/down
-		PINSEL1  = (PINSEL1  & ~(0b11 << 12)) | (0b01 << 12);
-		PINMODE1 = (PINMODE1 & ~(0b11 << 12)) | (0b10 << 12);
+		// // set P0.22 as RTS1, no pullup/down
+		// PINSEL1  = (PINSEL1  & ~(0b11 << 12)) | (0b01 << 12);
+		// PINMODE1 = (PINMODE1 & ~(0b11 << 12)) | (0b10 << 12);
 	}
 }
 
