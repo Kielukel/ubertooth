@@ -80,12 +80,13 @@ void gpio_init()
 	FIO4DIR = (PIN_RXLED | PIN_TXLED);
 #endif
 #ifdef UBERTOOTH_ONE
-	FIO0DIR = 0;
+	FIO0DIR = (1 << 15) | (1 << 17);  // enable P0.15 and P0.17
 	FIO1DIR = (PIN_USRLED | PIN_RXLED | PIN_TXLED | PIN_CC3V3 |
 			PIN_RX | PIN_CC1V8 | PIN_BTGR);
 	FIO2DIR = (PIN_CSN | PIN_SCLK | PIN_MOSI | PIN_PAEN | PIN_HGM);
 	FIO3DIR = 0;
 	FIO4DIR = (PIN_TX | PIN_SSEL1);
+	FIO0CLR = (1 << 15) | (1 << 17); // set LOW
 #endif
 #ifdef TC13BADGE
 	/*
@@ -305,11 +306,42 @@ u16 cc2400_get(u8 reg)
 	return in & 0xFFFF;
 }
 
-/* write 16 bit value to a register */
+// Macro to blast a single bit out. 
+// Uses __asm__("nop") for a ~15-30ns delay.
+#define BLAST_BIT(bit_pos) \
+    if ((ch_index >> bit_pos) & 1) { FIO0SET = (1 << 15); } \
+    else { FIO0CLR = (1 << 15); } \
+    __asm__ volatile ("nop"); \
+    FIO0SET = (1 << 17); \
+    __asm__ volatile ("nop"); __asm__ volatile ("nop"); \
+    __asm__ volatile ("nop"); __asm__ volatile ("nop"); \
+    FIO0CLR = (1 << 17); \
+    __asm__ volatile ("nop"); __asm__ volatile ("nop"); \
+    __asm__ volatile ("nop"); __asm__ volatile ("nop")
+
 void cc2400_set(u8 reg, u16 val)
 {
-	u32 out = (reg << 16) | val;
-	cc2400_spi(24, out);
+    u32 out = (reg << 16) | val;
+    cc2400_spi(24, out);
+
+    // Intercept FSDIV
+    if (reg == FSDIV) {
+        
+        // Calculate the channel
+        uint8_t ch_index = (uint8_t)(val + 1 - 2402);
+
+        // Unrolled bit-bang (Bits 6 down to 0)
+        BLAST_BIT(6);
+        BLAST_BIT(5);
+        BLAST_BIT(4);
+        BLAST_BIT(3);
+        BLAST_BIT(2);
+        BLAST_BIT(1);
+        BLAST_BIT(0);
+
+        // Park Data LOW
+        FIO0CLR = (1 << 15);
+    }
 }
 
 /* read 8 bit value from a register */
@@ -619,7 +651,7 @@ void cc2400_hop_tx(uint16_t channel)
 	while (!(cc2400_status() & XOSC16M_STABLE));
 	cc2400_strobe(SFSON);
 	while (!(cc2400_status() & FS_LOCK));
-	cc2400_strobe(SRX);
+	cc2400_strobe(STX);
 }
 
 void get_part_num(uint8_t *buffer, int *len)
